@@ -57,10 +57,10 @@ describe("configure TUI shell", () => {
     for (const character of "123456") view.stdin.write(character);
     await new Promise((resolve) => setTimeout(resolve, 20));
     view.stdin.write("\r");
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     expect(view.lastFrame()).toContain("SPKI SHA-256");
     view.stdin.write("\r");
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     expect(view.lastFrame()).toContain("Invalid value: SPKI SHA-256 must be 32-byte hex or Base64");
     const securityKey = "00".repeat(32);
     view.stdin.write(securityKey);
@@ -78,9 +78,9 @@ describe("configure TUI shell", () => {
     view.stdin.write("\r");
     await new Promise((resolve) => setTimeout(resolve, 20));
     for (const character of "123456") view.stdin.write(character);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     view.stdin.write("\r");
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     const securityKey = "00".repeat(32);
     view.stdin.write(securityKey);
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -97,9 +97,9 @@ describe("configure TUI shell", () => {
     view.stdin.write("\r");
     await new Promise((resolve) => setTimeout(resolve, 20));
     for (const character of "123456") view.stdin.write(character);
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     view.stdin.write("\r");
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     view.stdin.write(pin);
     await new Promise((resolve) => setTimeout(resolve, 20));
     view.stdin.write("\r");
