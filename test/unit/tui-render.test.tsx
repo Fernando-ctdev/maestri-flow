@@ -39,7 +39,6 @@ describe("configure TUI shell", () => {
     }
   });
   it.each([
-    ["connect", "Wire não configurado"],
     ["provisioning", "Provisionador não configurado"],
     ["canvas", "Feed do canvas não configurado"],
     ["review", "Persistência não configurada"],
@@ -50,9 +49,77 @@ describe("configure TUI shell", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(view.lastFrame()).toContain(message);
   });
-  it("renders disabled offline action in English", () => {
+  it("keeps the connection form open when pairing fails", async () => {
+    const view = render(<App language="en" actions={{ connect: async () => { throw new Error("invalid pairing code"); } }} onQuit={() => undefined} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    for (const character of "123456") view.stdin.write(character);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(view.lastFrame()).toContain("SPKI SHA-256");
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(view.lastFrame()).toContain("Invalid value: SPKI SHA-256 must be 32-byte hex or Base64");
+    const securityKey = "00".repeat(32);
+    view.stdin.write(securityKey);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(view.lastFrame()).toContain("Configure Wire");
+    expect(view.lastFrame()).toContain("Error: invalid pairing code");
+  });
+  it("normalizes pasted hexadecimal SPKI before pairing", async () => {
+    let pairedConfig: { serverKeyHash?: string } | undefined;
+    const view = render(<App language="en" actions={{ connect: async config => { pairedConfig = config; } }} onQuit={() => undefined} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    for (const character of "123456") view.stdin.write(character);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const securityKey = "00".repeat(32);
+    view.stdin.write(securityKey);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(pairedConfig?.serverKeyHash).toBe(Buffer.from(securityKey, "hex").toString("base64"));
+    expect(view.lastFrame()).toContain("CONNECTED");
+  });
+  it("passes a pasted 32-byte Base64 SPKI unchanged to pairing", async () => {
+    let pairedConfig: { serverKeyHash?: string } | undefined;
+    const pin = Buffer.alloc(32, 1).toString("base64");
+    const view = render(<App language="en" actions={{ connect: async config => { pairedConfig = config; } }} onQuit={() => undefined} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    for (const character of "123456") view.stdin.write(character);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write(pin);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(pairedConfig?.serverKeyHash).toBe(pin);
+    expect(view.lastFrame()).toContain("CONNECTED");
+  });
+  it("renders an actionable connection entry in English", () => {
     const view = render(<App language="en" initial={{ screen: "connect", actorBindings: {}, validation: [], connection: "idle" }} onQuit={() => undefined} />);
-    expect(view.lastFrame()).toContain("DISABLED");
-    expect(view.lastFrame()).toContain("Press Enter to connect");
+    expect(view.lastFrame()).toContain("READY");
+    expect(view.lastFrame()).toContain("Press Enter to test the connection");
+  });
+  it("Enter on Connect opens the Wire configuration form", async () => {
+    const view = render(<App language="en" onQuit={() => undefined} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(view.lastFrame()).toContain("Configure Wire");
+    expect(view.lastFrame()).toContain("Pairing code");
+    expect(view.lastFrame()).toContain("SPKI SHA-256");
+    expect(view.lastFrame()).not.toContain("DISABLED");
   });
 });
