@@ -173,7 +173,78 @@ git commit -m "feat: execute durable workflow queues"
 
 ---
 
-### Task 16: Build the pure TUI configuration state model
+### Task 16: Project SQLite workflow state into Maestri Notes
+
+**Files:**
+- Create: `src/projection/board.ts`
+- Create: `src/projection/task-details.ts`
+- Create: `src/projection/note-sync.ts`
+- Modify: `src/wire/client.ts`
+- Modify: `src/persistence/repositories.ts`
+- Test: `test/unit/board-projection.test.ts`
+- Test: `test/integration/note-sync.test.ts`
+
+**Interfaces:**
+
+```ts
+interface BoardProjection {
+  boardMarkdown: string;
+  taskDetailsMarkdown: string;
+}
+
+interface NoteProjectionService {
+  syncWorkflow(runId: string): Promise<void>;
+  repairWorkflow(workflowId: string): Promise<void>;
+}
+```
+
+- [ ] **Step 1: Write failing pure projection tests**
+
+Given persisted work items, run tokens and a workflow visualization config, render a compact Markdown table with synthetic `Backlog` and `Done` columns plus configured workflow-stage columns. Assert that the projection is derived only from persisted state and workflow labels/order, never from agent names or inferred software roles.
+
+Cover:
+
+- pending item -> `Backlog`;
+- completed item -> `Done`;
+- active task token -> matching stage column;
+- regression -> item moves back after the persisted token transition;
+- parallel active tokens -> same item may appear in multiple active columns;
+- hidden/reordered visual columns change display only, never graph behavior.
+
+- [ ] **Step 2: Render the separate Task Details Note**
+
+Render one compact section per work item containing stable id, title, status, current active stages and full body/description. Keep the board itself summary-only (id/title) so it remains readable.
+
+- [ ] **Step 3: Add Wire Note create/update support used by the projector**
+
+Use the official Wire Note routes/capabilities already modeled by the client. Persist the created board/detail Note `nodeId` values in the workflow/profile projection metadata so future syncs update the same Notes. Never discover target Notes by display title alone.
+
+- [ ] **Step 4: Enforce one-way synchronization semantics**
+
+A workflow transition must commit to SQLite **before** projection sync begins. If Note creation/update fails:
+
+1. do not roll back the workflow transaction;
+2. record a projection-sync failure event;
+3. leave the workflow runnable;
+4. retry from SQLite on the next sync/recovery pass.
+
+`repairWorkflow()` must be able to regenerate both Notes entirely from current SQLite state.
+
+- [ ] **Step 5: Trigger projection after durable state changes**
+
+After queue enqueue/dequeue, token transition, pause/resume/cancel and terminal completion commits, schedule a non-authoritative projection refresh. Coalesce rapid updates so parallel tokens do not cause needless Note writes.
+
+- [ ] **Step 6: Verify and commit**
+
+```bash
+npm test -- test/unit/board-projection.test.ts test/integration/note-sync.test.ts
+git add src/projection src/wire src/persistence test
+git commit -m "feat: project workflow state to Maestri notes"
+```
+
+---
+
+### Task 17: Build the pure TUI configuration state model
 
 **Files:**
 - Create: `src/tui/state.ts`
@@ -226,7 +297,7 @@ git commit -m "feat: model interactive workflow configuration"
 
 ---
 
-### Task 17: Build the interactive TUI from the live Maestri canvas
+### Task 18: Build the interactive TUI from the live Maestri canvas
 
 **Files:**
 - Create: `src/tui/app.tsx`
