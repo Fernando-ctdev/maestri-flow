@@ -151,6 +151,51 @@ A work item may have children. The engine itself does not care whether the relat
 
 When a top-level work item completes, the runner may claim the next pending top-level item and repeat until the queue is empty.
 
+### 14.1 Visual board projection to Maestri Notes
+
+`maestri-flow` may create and maintain two Maestri Notes through Wire as an optional visual projection of the durable state:
+
+1. **Workflow Board** — a compact Markdown board that shows work-item ids/titles under workflow-stage columns.
+2. **Task Details** — a separate Markdown note with the full description and current execution summary for each work item.
+
+These Notes are **never** a source of truth. SQLite remains authoritative for queue state, active tokens, transitions, retries and completion. The projection is one-way:
+
+```text
+SQLite transaction commits
+        ↓
+Board projector reads committed state
+        ↓
+Wire updates Workflow Board + Task Details Notes
+```
+
+A Note sync failure must not roll back or block a valid workflow transition. The projector records the sync failure and retries later from SQLite. On restart it can regenerate both Notes entirely from persisted state.
+
+The board is derived from the configured workflow, not from hard-coded software roles. `Backlog` and `Done` are synthetic columns; workflow-stage columns come from user-visible task-node labels/order in the saved workflow visualization config. The user may rename, hide or reorder visual columns without changing execution semantics.
+
+Example visual projection:
+
+```text
+| Backlog | Requisitos | Especificação | Planejamento | Desenvolvimento | Done |
+|---|---|---|---|---|---|
+| TASK-4 |  | TASK-3 |  |  | TASK-1 |
+| TASK-5 |  |  |  |  | TASK-2 |
+| TASK-6 |  |  |  |  |  |
+```
+
+For simple sequential/cyclic workflows, a running item appears in the column corresponding to its current task node. For parallel execution, the same work item may appear in more than one active stage column because SQLite may contain multiple active graph tokens for that item. Regressions naturally move the projection back to the configured stage after the underlying SQLite transition commits.
+
+The detailed Note contains stable work-item identity plus human-readable detail, for example:
+
+```text
+## TASK-3 — Validate checkout flow
+Status: running
+Current stages: Especificação
+
+Full description...
+```
+
+The workflow profile stores the created Note node ids so subsequent syncs update the same canvas Notes rather than creating duplicates. The TUI/CLI may offer `Create/repair visual board`, but execution correctness must not depend on either Note existing.
+
 ## 15. Persistence
 
 SQLite is the source of truth for execution state.
