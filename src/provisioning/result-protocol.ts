@@ -1,0 +1,3 @@
+import {z} from "zod"; import type {ProvisioningProposal} from "./types.js";
+const item=z.object({key:z.string().min(1),title:z.string().min(1),body:z.string().optional(),parentKey:z.string().nullable().optional(),metadata:z.record(z.unknown()).optional()}).strict(); const proposal=z.object({summary:z.string().optional(),workItems:z.array(item)}).strict();
+export function parseProvisioningResult(text:string):ProvisioningProposal|null{const m=[...text.matchAll(/\[\[MAESTRI_FLOW_PROVISIONING_RESULT\]\]\s*(\{[^\n]*\})/g)].at(-1);if(!m)return null;try{const x=proposal.parse(JSON.parse(m[1]));const keys=new Set(x.workItems.map(i=>i.key));if(keys.size!==x.workItems.length||x.workItems.some(i=>i.parentKey&&!keys.has(i.parentKey)))return null;return x;}catch{return null;}}

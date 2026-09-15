@@ -1,0 +1,2 @@
+import {EventEmitter} from "node:events"; import type {FeedSnapshot} from "../../src/wire/types.js";
+export class FakeWireServer extends EventEmitter {snapshot:FeedSnapshot;constructor(snapshot:FeedSnapshot){super();this.snapshot=snapshot;}emitFeed(snapshot:FeedSnapshot){this.snapshot=snapshot;this.emit("feed",{type:"feed",snapshot});}promptLog:string[]=[];prompt(text:string){this.promptLog.push(text);}}

@@ -1,0 +1,9 @@
+version: 2
+name: parent-child
+workspace: { id: example, floor: ground }
+topology: { mode: off }
+actors: { alpha: { label: Alpha, nodeId: NODE-A } }
+flows:
+  main:
+    entry: finish
+    nodes: { finish: { type: terminal, status: completed } }

@@ -1,0 +1,12 @@
+version: 2
+name: cyclic-review
+workspace: { id: example, floor: ground }
+topology: { mode: advisory }
+actors: { alpha: { label: Alpha, nodeId: NODE-A }, beta: { label: Beta, nodeId: NODE-B } }
+flows:
+  main:
+    entry: first
+    nodes:
+      first: { type: task, actor: alpha, outcomes: { again: second, done: finish } }
+      second: { type: task, actor: beta, outcomes: { back: first, done: finish } }
+      finish: { type: terminal, status: completed }

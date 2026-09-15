@@ -1,0 +1,10 @@
+import { z } from "zod";
+const policy=z.object({timeoutMs:z.number().int().positive().optional(),invalidResultRetries:z.number().int().nonnegative().optional(),maxAttempts:z.number().int().positive().optional()});
+const task=z.object({type:z.literal("task"),actor:z.string(),prompt:z.string().optional(),outcomes:z.record(z.string()),policy:policy.partial().optional()});
+const parallel=z.object({type:z.literal("parallel"),branches:z.array(z.string()).min(1),join:z.string()});
+const join=z.object({type:z.literal("join"),next:z.string()});
+const foreach=z.object({type:z.literal("foreach"),source:z.literal("children"),flow:z.string(),concurrency:z.number().int().positive(),onComplete:z.string(),onChildFailure:z.string().optional()});
+const terminal=z.object({type:z.literal("terminal"),status:z.enum(["completed","failed","paused","cancelled"])});
+export const nodeSchema=z.discriminatedUnion("type",[task,parallel,join,foreach,terminal]);
+export const workflowSchema=z.object({version:z.literal(2),name:z.string().min(1),workspace:z.object({id:z.string(),floor:z.string()}),topology:z.object({mode:z.enum(["strict","advisory","off"])}).default({mode:"advisory"}),actors:z.record(z.object({label:z.string(),nodeId:z.string(),snapshot:z.record(z.string()).optional()})),defaults:policy.optional(),flows:z.record(z.object({entry:z.string(),nodes:z.record(nodeSchema)}))});
+export type WorkflowDefinitionV2=z.infer<typeof workflowSchema>; export type TaskNode=z.infer<typeof task>; export type ParallelNode=z.infer<typeof parallel>; export type JoinNode=z.infer<typeof join>; export type ForeachNode=z.infer<typeof foreach>; export type TerminalNode=z.infer<typeof terminal>;

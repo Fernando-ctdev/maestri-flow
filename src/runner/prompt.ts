@@ -1,0 +1,1 @@
+export function buildManagedPrompt(input:{prompt?:string;outcomes:string[]}):string {return `${input.prompt??""}\n\nWhen complete, end with exactly one machine-readable result:\n[[MAESTRI_FLOW_RESULT]] {"outcome":"...","summary":"..."}\nAllowed outcomes: ${input.outcomes.join(", ")}\nDo not choose or contact the next workflow actor. The runtime owns continuation.`;}

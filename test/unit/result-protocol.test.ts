@@ -1,0 +1,2 @@
+import {describe,expect,it} from "vitest"; import {extractFlowResult} from "../../src/workflow/result-protocol.js";
+describe("result protocol",()=>{it("uses the last valid marker",()=>expect(extractFlowResult("x [[MAESTRI_FLOW_RESULT]] {bad}\n[[MAESTRI_FLOW_RESULT]] {\"outcome\":\"done\"}")).toEqual({outcome:"done"}));it("rejects undeclared shape",()=>expect(extractFlowResult("[[MAESTRI_FLOW_RESULT]] {\"next\":\"x\"}")).toBeNull());});

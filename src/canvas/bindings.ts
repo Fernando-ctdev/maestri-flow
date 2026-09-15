@@ -1,0 +1,4 @@
+import type { CanvasDiscovery } from "./discovery.js";
+export interface ActorBinding { key:string; label:string; nodeId:string; snapshot?:{terminalName?:string;roleName?:string;agentType?:string}; }
+export function resolveActor(binding:ActorBinding,d:CanvasDiscovery):{status:"resolved";terminalId:string;terminal:CanvasDiscovery["terminals"][number]}|{status:"stale";binding:ActorBinding}{const actor=d.terminals.find(t=>t.nodeId===binding.nodeId);return actor?{status:"resolved",terminalId:actor.id,terminal:actor}:{status:"stale",binding};}
+export function rebindActor(binding:ActorBinding,nodeId:string,d:CanvasDiscovery):ActorBinding { const t=d.terminals.find(x=>x.nodeId===nodeId); if(!t) throw new Error("unknown canvas terminal"); return {...binding,nodeId,snapshot:{terminalName:t.name,roleName:t.roleName,agentType:t.agentType}}; }
