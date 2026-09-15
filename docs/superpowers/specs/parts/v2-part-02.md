@@ -15,6 +15,9 @@ maestri-flow pause <run>
 maestri-flow resume <run>
 maestri-flow cancel <run>
 maestri-flow rebind [workflow]
+maestri-flow board create [workflow]
+maestri-flow board sync [workflow]
+maestri-flow board repair [workflow]
 ```
 
 `configure`, `enqueue` and `rebind` are interactive by default and also expose non-interactive flags later for automation.
@@ -61,6 +64,8 @@ The test suite must not require real LLM calls.
 - retry policy;
 - stale binding handling;
 - topology strict/advisory/off behavior;
+- Markdown board projection from committed SQLite state;
+- parallel-token, regression and queue-state projection behavior;
 - Maestro provisioner selection by `isManager` + `nodeId`;
 - provisioning result staging/validation.
 
@@ -88,6 +93,8 @@ A fake Wire server implements the subset used by the runtime:
 6. Rebind a missing actor node and resume.
 7. Process child work items through a subflow, then run a parent-level final task.
 8. Complete one top-level item and automatically claim the next until the queue is empty.
+9. Create `Workflow Board` + `Task Details` Notes, transition/regress/complete work items and assert the Notes mirror committed SQLite state.
+10. Force Note update failure and assert the workflow transition remains committed/runnable; repair then regenerates both Notes from SQLite.
 
 ## 21. Acceptance criteria
 
@@ -103,11 +110,13 @@ The project is complete when a user can:
 8. build and save an arbitrary cyclic workflow through the TUI;
 9. create sequential, regression/retry, parallel/join and parent/child-subflow workflows without software-specific engine code;
 10. start a managed run only after explicit binding/workflow confirmation;
-11. execute the workflow through Wire while Maestro has no authority over transitions;
-12. pause, re-provision/rebind and resume without losing workflow state;
-13. kill/restart the runner and resume without losing state;
-14. drain the configured queue until it is empty;
-15. prove through tests that only declared transitions can occur.
+11. optionally create `Workflow Board` and `Task Details` Notes that mirror SQLite state without becoming execution state;
+12. execute the workflow through Wire while Maestro has no authority over transitions;
+13. pause, re-provision/rebind and resume without losing workflow state;
+14. kill/restart the runner and resume without losing state;
+15. drain the configured queue until it is empty;
+16. rebuild the visual Notes from SQLite after deletion/sync failure;
+17. prove through tests that only declared transitions can occur.
 
 ## 22. Architectural principle
 
@@ -134,6 +143,12 @@ Workflow Definition
 
 Runtime
   = deterministic executor
+
+SQLite
+  = execution source of truth
+
+Workflow Board + Task Details Notes
+  = disposable, rebuildable visual projection of SQLite state
 
 Worker LLMs
   = probabilistic work inside task nodes
