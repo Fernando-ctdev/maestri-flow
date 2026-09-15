@@ -1,4 +1,4 @@
-### Task 18: Wire CLI commands to the TUI, queue and runner
+### Task 19: Wire CLI commands to the TUI, queue and runner
 
 **Files:**
 - Modify: `src/cli/index.ts`
@@ -21,6 +21,9 @@ maestri-flow pause <run>
 maestri-flow resume <run>
 maestri-flow cancel <run>
 maestri-flow rebind [workflow]
+maestri-flow board create [workflow]
+maestri-flow board sync [workflow]
+maestri-flow board repair [workflow]
 ```
 
 - [ ] **Step 1: Implement `pair`**
@@ -50,7 +53,11 @@ Print live terminals and connections in human-readable form and `--json` form. T
 
 `run` drains top-level queue; `status` shows current work item, tokens and paused reasons; pause/resume/cancel are durable DB mutations respected by scheduler.
 
-- [ ] **Step 6: Verify and commit**
+- [ ] **Step 6: Implement board commands**
+
+`board create` creates the two projection Notes and persists their node ids; `board sync` forces a refresh from current committed SQLite state; `board repair` recreates missing Notes and regenerates all Markdown from SQLite without changing any workflow state.
+
+- [ ] **Step 7: Verify and commit**
 
 ```bash
 npm test -- test/integration/cli.test.ts
@@ -62,7 +69,7 @@ git commit -m "feat: expose maestri flow cli"
 
 ---
 
-### Task 19: Prove crash recovery and actor rebinding
+### Task 20: Prove crash recovery and actor rebinding
 
 **Files:**
 - Create: `test/integration/runner-resume.test.ts`
@@ -105,7 +112,7 @@ git commit -m "test: prove workflow recovery and rebinding"
 
 ---
 
-### Task 20: Add canonical examples that prove the engine is not software-specific
+### Task 21: Add canonical examples that prove the engine is not software-specific
 
 **Files:**
 - Create: `examples/cyclic-review.yaml`
@@ -137,7 +144,7 @@ git commit -m "docs: add generic workflow examples"
 
 ---
 
-### Task 21: Document setup, safety and operating model
+### Task 22: Document setup, safety and operating model
 
 **Files:**
 - Create: `README.md`
@@ -171,6 +178,8 @@ Canvas = what actually exists
 TUI = provisioning handoff + actor meaning + workflow authored by user
 Workflow = legal transitions
 Runtime = deterministic executor
+SQLite = execution source of truth
+Board/Task Notes = optional visual projection only
 Wire = transport/observation
 Worker LLMs = task execution
 ```
@@ -183,7 +192,11 @@ State clearly that Maestro Mode is intentionally preserved for recruiting, roles
 
 Recommend a Shell terminal on the canvas for visibility while clarifying that execution also works outside Maestri.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Document visual board projection**
+
+Explain that Flow may create `Workflow Board` and `Task Details` Notes from the saved workflow + SQLite state. Make explicit that Notes are disposable/rebuildable views: deleting or failing to update them cannot change, regress or complete a workflow.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add README.md
@@ -192,7 +205,7 @@ git commit -m "docs: document maestri flow usage"
 
 ---
 
-### Task 22: Final verification gate
+### Task 23: Final verification gate
 
 **Files:**
 - Modify only files needed to fix discovered verification failures.
@@ -257,7 +270,9 @@ With fake Wire fixtures verify all spec acceptance criteria:
 11. restart resumes durable state;
 12. top-level queue drains to empty;
 13. pausing a run, provisioning/rebinding, and resuming preserves graph state;
-14. Maestro never chooses a managed-run transition.
+14. Maestro never chooses a managed-run transition;
+15. board/task-detail Notes follow backlog, active stages, regression and done from SQLite;
+16. a Note sync failure does not roll back or block a committed transition, and repair recreates the Notes from SQLite.
 
 - [ ] **Step 5: Commit final fixes only if needed**
 
@@ -270,14 +285,15 @@ git commit -m "chore: finalize maestri flow verification"
 
 ## Implementation Order / Review Gates
 
-Execute Tasks 1-22 in order. The meaningful review gates are:
+Execute Tasks 1-23 in order. The meaningful review gates are:
 
 1. **After Task 5:** Maestro provisioning is cleanly separated from workflow execution and only the refreshed canvas is trusted.
 2. **After Task 8:** schema + bindings + generic graph are correct before engine work.
 3. **After Task 11:** token engine can express cycles, parallel joins and child subflows without Maestri/Wire dependencies.
 4. **After Task 15:** runtime execution works headlessly against fake Wire.
-5. **After Task 17:** user can author the same model interactively from a real/fake canvas.
-6. **After Task 19:** recovery/rebind invariants are proven.
-7. **After Task 22:** only then call the project complete.
+5. **After Task 16:** visual Notes are proven to be one-way, rebuildable projections of SQLite state.
+6. **After Task 18:** user can author the same model interactively from a real/fake canvas.
+7. **After Task 20:** recovery/rebind invariants are proven.
+8. **After Task 23:** only then call the project complete.
 
 Do not add product features between these gates unless they are required by the design spec. In particular, do not add automatic semantic role inference, LLM-based routing, autonomous mid-run Maestro control, external task-provider integrations, or cross-floor orchestration in V1. Maestro-assisted provisioning before a run (or after an explicit pause) is part of V1 and must remain separate from engine routing.
