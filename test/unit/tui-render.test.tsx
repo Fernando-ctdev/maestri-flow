@@ -38,4 +38,21 @@ describe("configure TUI shell", () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+  it.each([
+    ["connect", "Wire não configurado"],
+    ["provisioning", "Provisionador não configurado"],
+    ["canvas", "Feed do canvas não configurado"],
+    ["review", "Persistência não configurada"],
+  ] as const)("Enter on %s reports a blocked action", async (screen, message) => {
+    const view = render(<App initial={{ screen, actorBindings: {}, validation: [] }} onQuit={() => undefined} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    view.stdin.write("\r");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(view.lastFrame()).toContain(message);
+  });
+  it("renders disabled offline action in English", () => {
+    const view = render(<App language="en" initial={{ screen: "connect", actorBindings: {}, validation: [], connection: "idle" }} onQuit={() => undefined} />);
+    expect(view.lastFrame()).toContain("DISABLED");
+    expect(view.lastFrame()).toContain("Press Enter to connect");
+  });
 });
