@@ -15,10 +15,12 @@ export class WorkflowRunner {
   private save(token: ExecutionToken) { if (this.deps.db) new TokenRepository(this.deps.db).save(token); }
   private put(token: ExecutionToken) { this.state = { ...this.state, tokens: [...this.state.tokens.filter(t => t.id !== token.id), token] }; }
   private runStatus(runId: string, status: string) { if (this.deps.db) this.deps.db.db.prepare("UPDATE runs SET status=? WHERE id=?").run(status, runId); }
+  private storedRunStatus(runId: string) { const row = this.deps.db?.db.prepare("SELECT status FROM runs WHERE id=?").get(runId) as { status?: string } | undefined; return row?.status; }
+  private isPaused(runId: string) { return this.storedRunStatus(runId) === "paused"; }
   private attempt(token: ExecutionToken, step: number) { if (this.deps.db) this.deps.db.db.prepare("INSERT OR IGNORE INTO attempts(id,token_id,status) VALUES(?,?,?)").run(`${token.id}:${step}`, token.id, "started"); }
   private result(token: ExecutionToken, outcome: string, step: number) { if (!this.deps.db) return; this.deps.db.transaction(db => { db.prepare("INSERT OR IGNORE INTO results(id,token_id,outcome,data) VALUES(?,?,?,?)").run(`${token.id}:${step}`, token.id, outcome, null); db.prepare("INSERT INTO events(run_id,type,data,created_at) VALUES(?,?,?,?)").run(token.runId, "TASK_RESULT", JSON.stringify({ tokenId: token.id, outcome }), Date.now()); }); }
   private fromRow(row: any): ExecutionToken { return { id: row.id, runId: row.run_id, workItemId: row.work_item_id, flowId: row.flow_id, nodeId: row.node_id, status: row.status, forkStack: JSON.parse(row.fork_stack) }; }
-  async runQueue(workflowId: string) { if (!this.deps.queue) throw new Error("queue service required"); let item; while ((item = this.deps.queue.claimTopLevel())) { const status = await this.runWorkItem(workflowId, item.id); this.deps.queue.complete(item.id, status as any); if (status !== "completed") break; } }
+  async runQueue(workflowId: string) { if (!this.deps.queue) throw new Error("queue service required"); let item; while ((item = this.deps.queue.claimTopLevel(workflowId))) { const status = await this.runWorkItem(workflowId, item.id); this.deps.queue.complete(item.id, status as any); if (status !== "completed") break; } }
   async runWorkItem(workflowId: string, workItemId: string): Promise<string> {
     const w = this.deps.workflow; if (!w) throw new Error("workflow required");
     const runId = `run-${workItemId}`;
@@ -32,7 +34,7 @@ export class WorkflowRunner {
   }
   private async execute(token: ExecutionToken, w: WorkflowDefinitionV2, workflowId: string, stop?: string): Promise<string> {
     for (let step = 0; step < 1000; step++) {
-      const current = this.state.tokens.find(t => t.id === token.id) ?? token; if (current.nodeId === stop) return "ready"; const node: any = w.flows[current.flowId]?.nodes[current.nodeId]; if (!node) return "paused";
+      const current = this.state.tokens.find(t => t.id === token.id) ?? token; if (this.isPaused(current.runId)) return "paused"; if (current.nodeId === stop) return "ready"; const node: any = w.flows[current.flowId]?.nodes[current.nodeId]; if (!node) return "paused";
       this.save(current);
       if (node.type === "terminal") { this.state = enterTerminal(this.state, current.id, w); this.save({ ...current, status: node.status }); if (current.id === `token-${current.workItemId}`) this.runStatus(current.runId, node.status); return node.status; }
       if (node.type === "task") { if (!this.deps.dispatch) { this.runStatus(current.runId, "paused"); return "paused"; } this.attempt(current, step); const result = await this.deps.dispatch(current, node, w); if (result.status !== undefined && result.status !== "OK" || !result.outcome) { this.runStatus(current.runId, "paused"); return "paused"; } this.state = reduceEngine(this.state, { type: "TASK_RESULT", tokenId: current.id, outcome: result.outcome }, w); this.result(current, result.outcome, step); this.save(this.state.tokens.find(t => t.id === current.id)!); continue; }
@@ -44,7 +46,7 @@ export class WorkflowRunner {
     return "paused";
   }
   private async branch(parent: ExecutionToken, nodeId: string, join: string, w: WorkflowDefinitionV2, workflowId: string) { const id = `${parent.id}:branch:${nodeId}`; const existing = this.state.tokens.find(t => t.id === id); const branch: ExecutionToken = existing ?? { ...parent, id, nodeId, status: "ready", forkStack: [...parent.forkStack, { forkId: parent.id, joinNodeId: join, branchId: nodeId }] }; if (!existing) { this.put(branch); this.save(branch); } return this.execute(branch, w, workflowId, join); }
-  async resume(runId: string) { let token = this.state.tokens.find(t => t.runId === runId); if (this.deps.db) { const rows = new TokenRepository(this.deps.db).byRun(runId); if (rows.length) { this.state = { ...this.state, tokens: rows.map(row => this.fromRow(row)) }; token = this.state.tokens.find(t => t.id === `token-${t.workItemId}`) ?? this.state.tokens[0]; } } if (!token) throw new Error("run not found"); return this.execute(token, this.deps.workflow!, "__resume__"); }
+  async resume(runId: string) { if (this.storedRunStatus(runId) === "cancelled") throw new Error("run cancelled"); let token = this.state.tokens.find(t => t.runId === runId); if (this.deps.db) { const rows = new TokenRepository(this.deps.db).byRun(runId); if (rows.length) { this.state = { ...this.state, tokens: rows.map(row => this.fromRow(row)) }; token = this.state.tokens.find(t => t.id === `token-${t.workItemId}`) ?? this.state.tokens[0]; } } if (!token) throw new Error("run not found"); return this.execute(token, this.deps.workflow!, "__resume__"); }
   advance(event: any, workflow: WorkflowDefinitionV2) { this.state = reduceEngine(this.state, event, workflow); return this.state; }
   terminal(tokenId: string, workflow: WorkflowDefinitionV2) { this.state = enterTerminal(this.state, tokenId, workflow); return this.state; }
 }
